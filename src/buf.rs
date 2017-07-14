@@ -1,4 +1,6 @@
-use alloc::{self, heap};
+use alloc::{self,allocator, heap};
+use self::allocator::{Alloc, Layout};
+use self::heap::Heap;
 use std::{cmp, io, mem, ops, ptr, slice};
 
 use std::io::Write;
@@ -184,8 +186,8 @@ impl RawBuf {
             // refcount, as well as required by Cap'n Proto. This requirement is
             // the primary reason that the raw allocation APIs are used instead
             // of something like RawVec.
-            let bytes = heap::allocate(len, refcount_len);
-            if bytes == ptr::null_mut() { alloc::oom() }
+            let bytes = Heap.alloc(Layout::from_size_align(len, refcount_len).unwrap()).unwrap();
+            //if bytes == ptr::null_mut() { alloc::oom::oom() }
             *(bytes as *mut u64) = 1;
             RawBuf {
                 bytes: bytes.offset(refcount_len as isize),
@@ -223,7 +225,7 @@ impl Drop for RawBuf {
             let refcount = allocation as *mut u64;
             *refcount -= 1;
             if *refcount == 0 {
-                heap::deallocate(allocation, self.len + refcount_len, refcount_len);
+                Heap.dealloc(allocation, Layout::from_size_align(self.len + refcount_len, refcount_len).unwrap());
             }
         }
     }
